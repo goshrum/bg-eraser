@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="BG Eraser — remove image backgrounds with AI that runs 100% in your browser. No upload, no API key, completely private and free."
+    />
+    <title>BG Eraser · On-device AI background remover</title>
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <h1 class="logo">BG&nbsp;Eraser</h1>
+        <p class="tagline">
+          Drop a photo. AI removes the background — right here in your browser.
+        </p>
+        <div class="badges">
+          <span class="badge badge--privacy"
+            >100% on-device · no upload · no API key</span
+          >
+          <span class="badge badge--backend"
+            >Backend: <strong id="backend-badge">…</strong></span
+          >
+        </div>
+      </header>
+
+      <section
+        id="drop-zone"
+        class="drop-zone"
+        tabindex="0"
+        role="button"
+        aria-label="Drop an image here or click to choose a file"
+      >
+        <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 16V4m0 0L8 8m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <p class="drop-title">Drag &amp; drop an image</p>
+        <p class="drop-sub">
+          or <span class="link">click to browse</span> · or paste from clipboard
+        </p>
+        <input id="file-input" type="file" accept="image/*" hidden />
+      </section>
+
+      <p id="status" class="status" data-kind="info" role="status" aria-live="polite"></p>
+
+      <div id="download-progress" class="dl-progress" hidden>
+        <div class="dl-track"><div id="download-bar" class="dl-bar"></div></div>
+        <span id="download-text" class="dl-label">Downloading model…</span>
+      </div>
+
+      <section id="stage" class="stage" hidden>
+        <div id="spinner" class="spinner" hidden>
+          <div class="spinner-ring"></div>
+          <span>Removing background…</span>
+        </div>
+
+        <div id="compare" class="compare" hidden>
+          <img id="before-img" class="compare-layer before" alt="Original image" />
+          <div id="after-clip" class="compare-layer after checkerboard">
+            <div id="after-wrap" class="after-wrap"></div>
+          </div>
+          <div id="slider-handle" class="slider-handle">
+            <div class="slider-line"></div>
+            <div class="slider-grip" aria-hidden="true">⇆</div>
+          </div>
+          <span class="compare-tag tag-before">Original</span>
+          <span class="compare-tag tag-after">Cut-out</span>
+        </div>
+      </section>
+
+      <section id="downloads" class="downloads" hidden>
+        <button id="dl-png" class="btn btn--primary">⬇ Transparent PNG</button>
+        <button id="dl-white" class="btn">⬇ On white</button>
+        <div class="color-group">
+          <button id="dl-color" class="btn">⬇ On color</button>
+          <input
+            id="bg-color"
+            type="color"
+            value="#3b82f6"
+            aria-label="Background color"
+          />
+        </div>
+        <button id="reset" class="btn btn--ghost">↺ New image</button>
+      </section>
+
+      <footer class="footer">
+        <p>
+          Powered by
+          <a href="https://huggingface.co/briaai/RMBG-1.4" target="_blank" rel="noopener"
+            >briaai/RMBG-1.4</a
+          >
+          via
+          <a href="https://github.com/huggingface/transformers.js" target="_blank" rel="noopener"
+            >🤗 transformers.js</a
+          >. Model weights are downloaded once from the HuggingFace CDN (free,
+          keyless) and cached by your browser. Your images never leave your device.
+        </p>
+      </footer>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.DS_Store
+
+# Downloaded / cached model weights (transformers.js cache, smoke test cache)
+.cache
+.transformers-cache
+*.onnx
+
+# Editor / OS
+.idea
+.vscode
+*.log
