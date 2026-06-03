@@ -58,6 +58,37 @@ export async function downloadCanvas(
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Render a canvas to a PNG Blob. */
+export function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Canvas export failed.'))),
+      'image/png',
+    ),
+  );
+}
+
+/** Whether the async Clipboard API can accept image blobs in this browser. */
+export function canCopyImages(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    !!navigator.clipboard &&
+    typeof navigator.clipboard.write === 'function' &&
+    typeof ClipboardItem !== 'undefined'
+  );
+}
+
+/** Copy a canvas to the clipboard as a PNG image. */
+export async function copyCanvasToClipboard(
+  canvas: HTMLCanvasElement,
+): Promise<void> {
+  if (!canCopyImages()) {
+    throw new Error('Clipboard image copy is not supported in this browser.');
+  }
+  const blob = await canvasToPngBlob(canvas);
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+}
+
 /** Decode a File/Blob into an ImageBitmap (used to feed the worker). */
 export async function fileToBitmap(file: Blob): Promise<ImageBitmap> {
   return createImageBitmap(file);
