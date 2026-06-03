@@ -50,6 +50,13 @@
         <input id="file-input" type="file" accept="image/*" hidden />
       </section>
 
+      <p class="sample-row">
+        No image handy?
+        <button id="try-sample" class="link-btn" type="button">
+          Try a sample image
+        </button>
+      </p>
+
       <p id="status" class="status" data-kind="info" role="status" aria-live="polite"></p>
 
       <div id="download-progress" class="dl-progress" hidden>
@@ -79,6 +86,7 @@
 
       <section id="downloads" class="downloads" hidden>
         <button id="dl-png" class="btn btn--primary">⬇ Transparent PNG</button>
+        <button id="copy-png" class="btn" hidden>⧉ Copy PNG</button>
         <button id="dl-white" class="btn">⬇ On white</button>
         <div class="color-group">
           <button id="dl-color" class="btn">⬇ On color</button>

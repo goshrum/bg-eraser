@@ -11,12 +11,16 @@ import { resolveBackend } from './lib/backend';
 import { derivedFilename, isAcceptedImage } from './lib/filename';
 import { hexToRgb, WHITE } from './lib/image-utils';
 import {
+  canCopyImages,
+  copyCanvasToClipboard,
   cutoutOnColor,
   cutoutToCanvas,
   downloadCanvas,
   fileToBitmap,
   type Cutout,
 } from './lib/canvas';
+import { loadBgColor, saveBgColor } from './lib/storage';
+import { SAMPLE_FILENAME, sampleImageBlob } from './lib/sample';
 import type { WorkerRequest, WorkerResponse } from './lib/messages';
 
 // ---------------------------------------------------------------------------
@@ -44,10 +48,30 @@ const sliderHandle = $('#slider-handle');
 const sliderClip = $<HTMLDivElement>('#after-clip');
 const downloadsPanel = $('#downloads');
 const btnPng = $<HTMLButtonElement>('#dl-png');
+const btnCopy = $<HTMLButtonElement>('#copy-png');
 const btnWhite = $<HTMLButtonElement>('#dl-white');
 const btnColor = $<HTMLButtonElement>('#dl-color');
 const colorPicker = $<HTMLInputElement>('#bg-color');
 const resetBtn = $<HTMLButtonElement>('#reset');
+const trySampleBtn = $<HTMLButtonElement>('#try-sample');
+
+// Restore the last-used "On color" export background (if any).
+const storage = (() => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+})();
+colorPicker.value = loadBgColor(storage, colorPicker.value);
+colorPicker.addEventListener('change', () => saveBgColor(storage, colorPicker.value));
+
+// "Copy PNG" only appears where the browser can actually copy image blobs.
+if (!canCopyImages()) {
+  btnCopy.remove();
+} else {
+  btnCopy.hidden = false;
+}
 
 // ---------------------------------------------------------------------------
 // State
@@ -244,6 +268,24 @@ btnPng.addEventListener('click', () => {
   if (!currentCutout) return;
   downloadCanvas(cutoutToCanvas(currentCutout), derivedFilename(currentName, 'nobg'));
 });
+btnCopy.addEventListener('click', async () => {
+  if (!currentCutout) return;
+  const original = btnCopy.textContent;
+  try {
+    await copyCanvasToClipboard(cutoutToCanvas(currentCutout));
+    btnCopy.textContent = '✓ Copied!';
+    setStatus('Transparent PNG copied to clipboard.', 'ok');
+  } catch (err) {
+    setStatus(
+      `Copy failed: ${err instanceof Error ? err.message : String(err)}`,
+      'error',
+    );
+  } finally {
+    setTimeout(() => {
+      btnCopy.textContent = original;
+    }, 1500);
+  }
+});
 btnWhite.addEventListener('click', () => {
   if (!currentCutout) return;
   downloadCanvas(
@@ -306,6 +348,20 @@ function bindInputs() {
     const dt = (e as DragEvent).dataTransfer;
     const f = dt?.files?.[0];
     if (f) handleFile(f);
+  });
+
+  // Built-in sample image: try the tool instantly without your own photo.
+  trySampleBtn.addEventListener('click', async () => {
+    if (busy) return;
+    try {
+      const blob = await sampleImageBlob();
+      await handleFile(blob, SAMPLE_FILENAME);
+    } catch (err) {
+      setStatus(
+        `Could not load the sample image: ${err instanceof Error ? err.message : String(err)}`,
+        'error',
+      );
+    }
   });
 
   // Paste from clipboard anywhere on the page.

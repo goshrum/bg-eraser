@@ -29,8 +29,13 @@ keyless HuggingFace CDN and then cached by your browser.
    recipe: `AutoModel` + `AutoProcessor` + `RawImage`.
 4. The model outputs a single-channel foreground **mask**, which is resized back
    to the original resolution and composited into the image's **alpha channel**.
-5. You get a before/after comparison slider and can download the cut-out as a
-   transparent PNG, on white, or on a custom solid color.
+5. You get a before/after comparison slider and can **download** the cut-out as a
+   transparent PNG, on white, or on a custom solid color — or **copy** the
+   transparent PNG straight to your clipboard. Your last-used "On color"
+   background is remembered for next time.
+
+No photo handy? Click **Try a sample image** to run the full pipeline instantly
+on a locally-generated sample — still nothing leaves your device.
 
 ### The only network call
 
@@ -76,8 +81,9 @@ Vite's `base` is set to `'./'` so the build works from any Pages sub-path.
 
 - **Unit tests (Vitest):** cover all the pure, non-AI logic — alpha-mask
   compositing onto RGBA, flattening an alpha image onto a solid background, hex
-  parsing, output-filename derivation, image file-type validation, and the
-  (mockable) WebGPU-availability guard.
+  parsing, output-filename derivation, image file-type validation, the
+  (mockable) WebGPU-availability guard, background-color persistence, and the
+  sample-image SVG/data-URL builder.
 - **Node smoke test (`npm run smoke`):** *attempts* to actually load RMBG-1.4
   and run it on a tiny synthetic image to prove the pipeline wiring. It has a
   hard timeout and **skips gracefully** (exit 0) if the model download is too
