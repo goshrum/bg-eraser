@@ -163,6 +163,145 @@ export function featherAlpha(
   return out;
 }
 
+/** An axis-aligned bounding box in pixel coordinates (x,y = top-left). */
+export interface BBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Compute the tight bounding box of the non-transparent pixels of an alpha mask.
+ *
+ * Scans the single-channel alpha and returns the smallest rectangle that
+ * contains every pixel whose alpha is `>= threshold`. Pixels strictly below the
+ * threshold are treated as empty/transparent and excluded. This lets callers
+ * crop away the empty transparent border around a subject (e.g. for stickers or
+ * product shots) so the subject fills the frame.
+ *
+ * Returns `null` when no pixel meets the threshold (i.e. the image is fully
+ * transparent), signalling "nothing to crop".
+ *
+ * Pure: reads the input only.
+ *
+ * @param alpha     Single-channel alpha, length width*height (0..255).
+ * @param width     Image width in pixels (> 0).
+ * @param height    Image height in pixels (> 0).
+ * @param threshold Minimum alpha (inclusive) to count a pixel as part of the
+ *                  subject. Defaults to 1 (any non-zero alpha). Clamped to
+ *                  [1, 255] so a threshold of 0 cannot select transparent pixels.
+ */
+export function computeAlphaBBox(
+  alpha: Uint8Array | Uint8ClampedArray,
+  width: number,
+  height: number,
+  threshold = 1,
+): BBox | null {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('computeAlphaBBox: width and height must be positive integers.');
+  }
+  if (alpha.length !== width * height) {
+    throw new Error(
+      `computeAlphaBBox: alpha length ${alpha.length} does not match width*height ${width * height}.`,
+    );
+  }
+  // Clamp the threshold so 0 (or negative) does not match transparent pixels,
+  // and values above 255 simply never match.
+  const t = Math.max(1, Math.min(255, Math.round(threshold)));
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y++) {
+    const row = y * width;
+    for (let x = 0; x < width; x++) {
+      if (alpha[row + x] >= t) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxX < 0) return null; // nothing met the threshold
+
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+/**
+ * Crop an RGBA image to a bounding box, returning a NEW, smaller RGBA buffer.
+ *
+ * The box is intersected with the image bounds, so out-of-range boxes are
+ * handled gracefully. Pure: the source is never mutated.
+ *
+ * @param rgba   Source RGBA, length width*height*4.
+ * @param width  Source image width in pixels (> 0).
+ * @param height Source image height in pixels (> 0).
+ * @param bbox   Rectangle to extract (in source pixel coordinates).
+ * @returns `{ data, w, h }` of the cropped region.
+ */
+export function cropRgba(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  bbox: BBox,
+): { data: Uint8ClampedArray; w: number; h: number } {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    throw new Error('cropRgba: width and height must be positive integers.');
+  }
+  if (rgba.length !== width * height * 4) {
+    throw new Error(
+      `cropRgba: rgba length ${rgba.length} does not match width*height*4 ${width * height * 4}.`,
+    );
+  }
+  // Clamp the requested box to the image so we never read out of bounds.
+  const x0 = Math.max(0, Math.min(width, Math.floor(bbox.x)));
+  const y0 = Math.max(0, Math.min(height, Math.floor(bbox.y)));
+  const x1 = Math.max(x0, Math.min(width, Math.floor(bbox.x) + Math.floor(bbox.w)));
+  const y1 = Math.max(y0, Math.min(height, Math.floor(bbox.y) + Math.floor(bbox.h)));
+  const cw = x1 - x0;
+  const ch = y1 - y0;
+
+  const data = new Uint8ClampedArray(cw * ch * 4);
+  for (let y = 0; y < ch; y++) {
+    const srcStart = ((y0 + y) * width + x0) * 4;
+    const dstStart = y * cw * 4;
+    // Copy a full row of `cw` pixels (cw*4 bytes) in one shot.
+    data.set(rgba.subarray(srcStart, srcStart + cw * 4), dstStart);
+  }
+  return { data, w: cw, h: ch };
+}
+
+/**
+ * Convenience: trim an RGBA buffer to the tight bounding box of its own
+ * non-transparent pixels. Returns the unchanged input (as a fresh buffer) when
+ * the subject already fills the frame, and `null` when fully transparent.
+ *
+ * Combines {@link computeAlphaBBox} and {@link cropRgba}; intended to run on the
+ * already-feathered cut-out (feather first, then trim).
+ */
+export function trimRgbaToAlpha(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  threshold = 1,
+): { data: Uint8ClampedArray; w: number; h: number } | null {
+  const pixels = width * height;
+  if (rgba.length !== pixels * 4) {
+    throw new Error(
+      `trimRgbaToAlpha: rgba length ${rgba.length} does not match width*height*4 ${pixels * 4}.`,
+    );
+  }
+  const alpha = new Uint8Array(pixels);
+  for (let i = 0; i < pixels; i++) alpha[i] = rgba[i * 4 + 3];
+  const bbox = computeAlphaBBox(alpha, width, height, threshold);
+  if (!bbox) return null;
+  return cropRgba(rgba, width, height, bbox);
+}
+
 /**
  * Return a NEW RGBA buffer with a feathered (softened) alpha channel.
  *

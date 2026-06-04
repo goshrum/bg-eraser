@@ -13,6 +13,9 @@ export const BG_COLOR_KEY = 'bg-eraser:bg-color';
 /** Storage key for the last-used edge-feather radius (pixels). */
 export const FEATHER_KEY = 'bg-eraser:feather';
 
+/** Storage key for the "trim transparent edges" toggle. */
+export const TRIM_KEY = 'bg-eraser:trim';
+
 /** A minimal subset of the Web Storage API we depend on. */
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -102,6 +105,43 @@ export function saveFeather(
   if (!storage) return false;
   try {
     storage.setItem(FEATHER_KEY, String(clampFeather(value, max)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read the saved "trim transparent edges" toggle. Stored as '1' (on) or '0'
+ * (off). Returns `fallback` when nothing valid is stored or storage access
+ * throws (private mode / disabled cookies).
+ */
+export function loadTrim(
+  storage: StorageLike | null | undefined,
+  fallback = false,
+): boolean {
+  if (!storage) return fallback;
+  try {
+    const raw = storage.getItem(TRIM_KEY);
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Persist the "trim transparent edges" toggle as '1'/'0'. Any storage error is
+ * swallowed. Returns whether a write actually happened.
+ */
+export function saveTrim(
+  storage: StorageLike | null | undefined,
+  value: boolean,
+): boolean {
+  if (!storage) return false;
+  try {
+    storage.setItem(TRIM_KEY, value ? '1' : '0');
     return true;
   } catch {
     return false;

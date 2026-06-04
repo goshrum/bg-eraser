@@ -2,12 +2,15 @@ import { describe, it, expect } from 'vitest';
 import {
   BG_COLOR_KEY,
   FEATHER_KEY,
+  TRIM_KEY,
   clampFeather,
   isHexColor,
   loadBgColor,
   loadFeather,
+  loadTrim,
   saveBgColor,
   saveFeather,
+  saveTrim,
   type StorageLike,
 } from '../src/lib/storage';
 
@@ -143,5 +146,43 @@ describe('saveFeather', () => {
     const s = memStorage();
     saveFeather(s, 4, 5);
     expect(loadFeather(s, 5, 0)).toBe(4);
+  });
+});
+
+describe('loadTrim', () => {
+  it("reads '1' as true and '0' as false", () => {
+    expect(loadTrim(memStorage({ [TRIM_KEY]: '1' }))).toBe(true);
+    expect(loadTrim(memStorage({ [TRIM_KEY]: '0' }))).toBe(false);
+  });
+  it('returns the fallback when nothing valid is stored', () => {
+    expect(loadTrim(memStorage(), true)).toBe(true);
+    expect(loadTrim(memStorage(), false)).toBe(false);
+    expect(loadTrim(memStorage({ [TRIM_KEY]: 'maybe' }), true)).toBe(true);
+  });
+  it('defaults to false when no fallback is given', () => {
+    expect(loadTrim(memStorage())).toBe(false);
+  });
+  it('returns the fallback for null storage and on access errors', () => {
+    expect(loadTrim(null, true)).toBe(true);
+    expect(loadTrim(throwingStorage, true)).toBe(true);
+  });
+});
+
+describe('saveTrim', () => {
+  it("writes '1'/'0' and reports success", () => {
+    const s = memStorage();
+    expect(saveTrim(s, true)).toBe(true);
+    expect(s.store[TRIM_KEY]).toBe('1');
+    saveTrim(s, false);
+    expect(s.store[TRIM_KEY]).toBe('0');
+  });
+  it('returns false for null storage and on access errors', () => {
+    expect(saveTrim(null, true)).toBe(false);
+    expect(saveTrim(throwingStorage, true)).toBe(false);
+  });
+  it('round-trips through load', () => {
+    const s = memStorage();
+    saveTrim(s, true);
+    expect(loadTrim(s, false)).toBe(true);
   });
 });
