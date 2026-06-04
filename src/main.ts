@@ -9,7 +9,7 @@
 import './style.css';
 import { resolveBackend } from './lib/backend';
 import { derivedFilename, isAcceptedImage } from './lib/filename';
-import { hexToRgb, WHITE } from './lib/image-utils';
+import { hexToRgb, featherRgbaAlpha, MAX_FEATHER_RADIUS, WHITE } from './lib/image-utils';
 import {
   canCopyImages,
   copyCanvasToClipboard,
@@ -19,7 +19,7 @@ import {
   fileToBitmap,
   type Cutout,
 } from './lib/canvas';
-import { loadBgColor, saveBgColor } from './lib/storage';
+import { loadBgColor, saveBgColor, loadFeather, saveFeather } from './lib/storage';
 import { SAMPLE_FILENAME, sampleImageBlob } from './lib/sample';
 import type { WorkerRequest, WorkerResponse } from './lib/messages';
 
@@ -54,6 +54,9 @@ const btnColor = $<HTMLButtonElement>('#dl-color');
 const colorPicker = $<HTMLInputElement>('#bg-color');
 const resetBtn = $<HTMLButtonElement>('#reset');
 const trySampleBtn = $<HTMLButtonElement>('#try-sample');
+const featherControl = $('#feather-control');
+const featherSlider = $<HTMLInputElement>('#feather');
+const featherValue = $('#feather-value');
 
 // Restore the last-used "On color" export background (if any).
 const storage = (() => {
@@ -65,6 +68,11 @@ const storage = (() => {
 })();
 colorPicker.value = loadBgColor(storage, colorPicker.value);
 colorPicker.addEventListener('change', () => saveBgColor(storage, colorPicker.value));
+
+// Restore the last-used edge-feather radius (if any).
+featherSlider.max = String(MAX_FEATHER_RADIUS);
+let featherRadius = loadFeather(storage, MAX_FEATHER_RADIUS, 0);
+featherSlider.value = String(featherRadius);
 
 // "Copy PNG" only appears where the browser can actually copy image blobs.
 if (!canCopyImages()) {
@@ -86,6 +94,39 @@ let busy = false;
 function setStatus(text: string, kind: 'info' | 'error' | 'ok' = 'info') {
   statusBar.textContent = text;
   statusBar.dataset.kind = kind;
+}
+
+/**
+ * The cut-out actually shown and exported: the raw model result with its alpha
+ * channel feathered by the current radius. Radius 0 is a no-op copy, so all
+ * outputs (preview / PNG / on-color / on-white) share one source of truth.
+ */
+function displayCutout(): Cutout | null {
+  if (!currentCutout) return null;
+  return {
+    rgba: featherRgbaAlpha(
+      currentCutout.rgba,
+      currentCutout.width,
+      currentCutout.height,
+      featherRadius,
+    ),
+    width: currentCutout.width,
+    height: currentCutout.height,
+  };
+}
+
+function updateFeatherLabel() {
+  featherValue.innerHTML = `${featherRadius}&nbsp;px`;
+}
+
+/** Re-render the preview canvas from the current cut-out + feather radius. */
+function refreshPreview() {
+  const cutout = displayCutout();
+  if (!cutout) return;
+  const canvas = cutoutToCanvas(cutout);
+  canvas.id = 'after-canvas';
+  afterCanvasWrap.innerHTML = '';
+  afterCanvasWrap.appendChild(canvas);
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +184,7 @@ function onWorkerMessage(msg: WorkerResponse) {
         width: msg.width,
         height: msg.height,
       };
-      renderResult(currentCutout);
+      renderResult();
       setStatus('Done. Drag the slider to compare, then download.', 'ok');
       break;
     }
@@ -208,13 +249,12 @@ async function handleFile(file: File | Blob, name?: string) {
   }
 }
 
-function renderResult(cutout: Cutout) {
-  const canvas = cutoutToCanvas(cutout);
-  canvas.id = 'after-canvas';
-  afterCanvasWrap.innerHTML = '';
-  afterCanvasWrap.appendChild(canvas);
+function renderResult() {
+  refreshPreview();
   compare.hidden = false;
   downloadsPanel.hidden = false;
+  featherControl.hidden = false;
+  updateFeatherLabel();
   setSlider(50);
   spinner.hidden = true;
 }
@@ -265,14 +305,16 @@ function bindSlider() {
 // Downloads
 // ---------------------------------------------------------------------------
 btnPng.addEventListener('click', () => {
-  if (!currentCutout) return;
-  downloadCanvas(cutoutToCanvas(currentCutout), derivedFilename(currentName, 'nobg'));
+  const cutout = displayCutout();
+  if (!cutout) return;
+  downloadCanvas(cutoutToCanvas(cutout), derivedFilename(currentName, 'nobg'));
 });
 btnCopy.addEventListener('click', async () => {
-  if (!currentCutout) return;
+  const cutout = displayCutout();
+  if (!cutout) return;
   const original = btnCopy.textContent;
   try {
-    await copyCanvasToClipboard(cutoutToCanvas(currentCutout));
+    await copyCanvasToClipboard(cutoutToCanvas(cutout));
     btnCopy.textContent = '✓ Copied!';
     setStatus('Transparent PNG copied to clipboard.', 'ok');
   } catch (err) {
@@ -287,19 +329,34 @@ btnCopy.addEventListener('click', async () => {
   }
 });
 btnWhite.addEventListener('click', () => {
-  if (!currentCutout) return;
+  const cutout = displayCutout();
+  if (!cutout) return;
   downloadCanvas(
-    cutoutOnColor(currentCutout, WHITE),
+    cutoutOnColor(cutout, WHITE),
     derivedFilename(currentName, 'white'),
   );
 });
 btnColor.addEventListener('click', () => {
-  if (!currentCutout) return;
+  const cutout = displayCutout();
+  if (!cutout) return;
   const rgb = hexToRgb(colorPicker.value);
   downloadCanvas(
-    cutoutOnColor(currentCutout, rgb),
+    cutoutOnColor(cutout, rgb),
     derivedFilename(currentName, 'bg'),
   );
+});
+
+// Edge feather: re-composite the existing mask instantly on every change.
+featherSlider.addEventListener('input', () => {
+  featherRadius = Math.max(
+    0,
+    Math.min(MAX_FEATHER_RADIUS, Math.round(Number(featherSlider.value) || 0)),
+  );
+  updateFeatherLabel();
+  refreshPreview();
+});
+featherSlider.addEventListener('change', () => {
+  saveFeather(storage, featherRadius, MAX_FEATHER_RADIUS);
 });
 
 resetBtn.addEventListener('click', () => {
@@ -307,6 +364,7 @@ resetBtn.addEventListener('click', () => {
   stage.hidden = true;
   compare.hidden = true;
   downloadsPanel.hidden = true;
+  featherControl.hidden = true;
   fileInput.value = '';
   setStatus(
     modelReady

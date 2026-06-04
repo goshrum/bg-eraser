@@ -84,6 +84,27 @@
         </div>
       </section>
 
+      <div id="feather-control" class="feather-control" hidden>
+        <label class="feather-label" for="feather">
+          Edge feather
+          <span id="feather-value" class="feather-value">0&nbsp;px</span>
+        </label>
+        <input
+          id="feather"
+          class="feather-slider"
+          type="range"
+          min="0"
+          max="5"
+          step="1"
+          value="0"
+          aria-describedby="feather-hint"
+        />
+        <p id="feather-hint" class="feather-hint">
+          Soften the cut-out edges for a more natural blend. Applies instantly —
+          the AI does not re-run.
+        </p>
+      </div>
+
       <section id="downloads" class="downloads" hidden>
         <button id="dl-png" class="btn btn--primary">⬇ Transparent PNG</button>
         <button id="copy-png" class="btn" hidden>⧉ Copy PNG</button>

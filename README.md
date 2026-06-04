@@ -29,10 +29,13 @@ keyless HuggingFace CDN and then cached by your browser.
    recipe: `AutoModel` + `AutoProcessor` + `RawImage`.
 4. The model outputs a single-channel foreground **mask**, which is resized back
    to the original resolution and composited into the image's **alpha channel**.
-5. You get a before/after comparison slider and can **download** the cut-out as a
-   transparent PNG, on white, or on a custom solid color — or **copy** the
-   transparent PNG straight to your clipboard. Your last-used "On color"
-   background is remembered for next time.
+5. You get a before/after comparison slider and an **edge-feather slider** that
+   softens the cut-out edges (0–5&nbsp;px) for a more natural blend — applied
+   client-side to the existing mask, so it is instant and never re-runs the
+   model. You can then **download** the cut-out as a transparent PNG, on white,
+   or on a custom solid color — or **copy** the transparent PNG straight to your
+   clipboard. Your last-used "On color" background and feather radius are
+   remembered for next time.
 
 No photo handy? Click **Try a sample image** to run the full pipeline instantly
 on a locally-generated sample — still nothing leaves your device.

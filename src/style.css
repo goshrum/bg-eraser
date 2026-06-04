@@ -390,6 +390,43 @@ body {
   cursor: pointer;
 }
 
+/* ---------------- Edge feather ---------------- */
+.feather-control {
+  max-width: 420px;
+  margin: 1.5rem auto 0;
+  padding: 0.9rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+.feather-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.feather-value {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.feather-slider {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.feather-slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.feather-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 /* ---------------- Footer ---------------- */
 .footer {
   margin-top: 3rem;

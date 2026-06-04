@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Edge feather / smoothing slider.** A 0–5&nbsp;px slider softens the alpha
+  edges of the cut-out for a more natural blend. It re-composites the existing
+  mask client-side (a separable box blur on the single-channel alpha) — instant,
+  with no model re-run — and updates the preview live. All exports (transparent
+  PNG, Copy PNG, on white, on color) use the feathered alpha, and the last-used
+  radius is remembered in `localStorage`.
 - **Copy result to clipboard.** A "Copy PNG" button copies the transparent
   cut-out straight to the system clipboard (PNG). The button only appears in
   browsers that support image writes via the async Clipboard API.
@@ -22,6 +28,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Added unit tests for the new pure logic: background-color persistence
   (`storage`) and the sample-image SVG/data-URL builder (`sample`).
+- Added unit tests for the edge-feather logic: `featherAlpha` /
+  `featherRgbaAlpha` (radius 0 is identity, the blur widens the soft edge while
+  preserving a fully-opaque interior and fully-transparent exterior) and the
+  feather-radius persistence helpers (`clampFeather` / `loadFeather` /
+  `saveFeather`).
 
 ## [1.0.0]
 
