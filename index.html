@@ -17,7 +17,7 @@
           Drop a photo. AI removes the background — right here in your browser.
         </p>
         <div class="badges">
-          <span class="badge badge--privacy"
+          <span class="badge badge--privacy" data-testid="app-ready"
             >100% on-device · no upload · no API key</span
           >
           <span class="badge badge--backend"
@@ -32,6 +32,7 @@
         tabindex="0"
         role="button"
         aria-label="Drop an image here or click to choose a file"
+        data-testid="dropzone"
       >
         <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -98,11 +99,29 @@
           step="1"
           value="0"
           aria-describedby="feather-hint"
+          data-testid="feather-slider"
         />
         <p id="feather-hint" class="feather-hint">
           Soften the cut-out edges for a more natural blend. Applies instantly —
           the AI does not re-run.
         </p>
+
+        <label class="trim-row">
+          <input
+            id="trim"
+            class="trim-checkbox"
+            type="checkbox"
+            data-testid="trim-toggle"
+            aria-describedby="trim-hint"
+          />
+          <span class="trim-text">
+            Trim transparent edges
+            <span id="trim-hint" class="trim-hint">
+              Crop the export to the subject's tight bounding box, removing empty
+              transparent margins. Great for stickers and product shots.
+            </span>
+          </span>
+        </label>
       </div>
 
       <section id="downloads" class="downloads" hidden>

@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Auto-trim transparent margins on export.** A "Trim transparent edges"
+  checkbox crops the result to the tight bounding box of its non-transparent
+  pixels, removing the empty transparent border so the subject fills the image
+  (ideal for stickers and product shots). It runs entirely client-side on the
+  existing cut-out — no model re-run — and composes correctly with the edge
+  feather (feather first, then trim). When on, the preview and every export
+  (transparent PNG, Copy PNG, on white, on color) use the cropped result; a
+  fully-transparent result is left uncropped. The choice is remembered in
+  `localStorage`. Implemented as pure functions `computeAlphaBBox` /
+  `cropRgba` (plus a `trimRgbaToAlpha` convenience) in `src/lib/image-utils`.
 - **Edge feather / smoothing slider.** A 0–5&nbsp;px slider softens the alpha
   edges of the cut-out for a more natural blend. It re-composites the existing
   mask client-side (a separable box blur on the single-channel alpha) — instant,
@@ -26,6 +36,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Tests
 
+- Added unit tests for the auto-trim logic: `computeAlphaBBox` (centered
+  square, fully transparent → null, full-frame subject, 1px subject, threshold
+  handling), `cropRgba` (exact extraction, full-image copy, out-of-bounds
+  clamping) and the `trimRgbaToAlpha` convenience, plus the trim-toggle
+  persistence helpers (`loadTrim` / `saveTrim`).
 - Added unit tests for the new pure logic: background-color persistence
   (`storage`) and the sample-image SVG/data-URL builder (`sample`).
 - Added unit tests for the edge-feather logic: `featherAlpha` /

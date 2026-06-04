@@ -426,6 +426,37 @@ body {
   font-size: 0.78rem;
   color: var(--muted);
 }
+.trim-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.trim-checkbox {
+  margin: 0.15rem 0 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
+}
+.trim-checkbox:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.trim-text {
+  font-weight: 600;
+}
+.trim-hint {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
+}
 
 /* ---------------- Footer ---------------- */
 .footer {

@@ -9,7 +9,13 @@
 import './style.css';
 import { resolveBackend } from './lib/backend';
 import { derivedFilename, isAcceptedImage } from './lib/filename';
-import { hexToRgb, featherRgbaAlpha, MAX_FEATHER_RADIUS, WHITE } from './lib/image-utils';
+import {
+  hexToRgb,
+  featherRgbaAlpha,
+  trimRgbaToAlpha,
+  MAX_FEATHER_RADIUS,
+  WHITE,
+} from './lib/image-utils';
 import {
   canCopyImages,
   copyCanvasToClipboard,
@@ -19,7 +25,14 @@ import {
   fileToBitmap,
   type Cutout,
 } from './lib/canvas';
-import { loadBgColor, saveBgColor, loadFeather, saveFeather } from './lib/storage';
+import {
+  loadBgColor,
+  saveBgColor,
+  loadFeather,
+  saveFeather,
+  loadTrim,
+  saveTrim,
+} from './lib/storage';
 import { SAMPLE_FILENAME, sampleImageBlob } from './lib/sample';
 import type { WorkerRequest, WorkerResponse } from './lib/messages';
 
@@ -57,6 +70,7 @@ const trySampleBtn = $<HTMLButtonElement>('#try-sample');
 const featherControl = $('#feather-control');
 const featherSlider = $<HTMLInputElement>('#feather');
 const featherValue = $('#feather-value');
+const trimToggle = $<HTMLInputElement>('#trim');
 
 // Restore the last-used "On color" export background (if any).
 const storage = (() => {
@@ -73,6 +87,10 @@ colorPicker.addEventListener('change', () => saveBgColor(storage, colorPicker.va
 featherSlider.max = String(MAX_FEATHER_RADIUS);
 let featherRadius = loadFeather(storage, MAX_FEATHER_RADIUS, 0);
 featherSlider.value = String(featherRadius);
+
+// Restore the "trim transparent edges" toggle (off by default).
+let trimEdges = loadTrim(storage, false);
+trimToggle.checked = trimEdges;
 
 // "Copy PNG" only appears where the browser can actually copy image blobs.
 if (!canCopyImages()) {
@@ -98,18 +116,34 @@ function setStatus(text: string, kind: 'info' | 'error' | 'ok' = 'info') {
 
 /**
  * The cut-out actually shown and exported: the raw model result with its alpha
- * channel feathered by the current radius. Radius 0 is a no-op copy, so all
+ * channel feathered by the current radius, then (optionally) cropped to the
+ * subject's tight bounding box. We feather FIRST so the softened edge is part of
+ * the kept subject before measuring the box; radius 0 is a no-op copy, so all
  * outputs (preview / PNG / on-color / on-white) share one source of truth.
+ *
+ * If trimming is on but the result is fully transparent there is nothing to
+ * crop, so we fall back to the untrimmed (feathered) cut-out.
  */
 function displayCutout(): Cutout | null {
   if (!currentCutout) return null;
-  return {
-    rgba: featherRgbaAlpha(
-      currentCutout.rgba,
+  const feathered = featherRgbaAlpha(
+    currentCutout.rgba,
+    currentCutout.width,
+    currentCutout.height,
+    featherRadius,
+  );
+  if (trimEdges) {
+    const trimmed = trimRgbaToAlpha(
+      feathered,
       currentCutout.width,
       currentCutout.height,
-      featherRadius,
-    ),
+    );
+    if (trimmed) {
+      return { rgba: trimmed.data, width: trimmed.w, height: trimmed.h };
+    }
+  }
+  return {
+    rgba: feathered,
     width: currentCutout.width,
     height: currentCutout.height,
   };
@@ -357,6 +391,13 @@ featherSlider.addEventListener('input', () => {
 });
 featherSlider.addEventListener('change', () => {
   saveFeather(storage, featherRadius, MAX_FEATHER_RADIUS);
+});
+
+// Trim transparent edges: re-crop the existing cut-out instantly, persist choice.
+trimToggle.addEventListener('change', () => {
+  trimEdges = trimToggle.checked;
+  saveTrim(storage, trimEdges);
+  refreshPreview();
 });
 
 resetBtn.addEventListener('click', () => {
