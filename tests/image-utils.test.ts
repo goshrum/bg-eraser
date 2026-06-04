@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyAlphaMask,
+  featherAlpha,
+  featherRgbaAlpha,
   flattenOntoBackground,
   hexToRgb,
   WHITE,
@@ -77,6 +79,112 @@ describe('flattenOntoBackground', () => {
 
   it('throws on non-multiple-of-4 length', () => {
     expect(() => flattenOntoBackground(new Uint8ClampedArray(3), WHITE)).toThrow();
+  });
+});
+
+describe('featherAlpha', () => {
+  /** Build a width x height alpha mask with the left half opaque, right half clear. */
+  function leftHalfMask(width: number, height: number): Uint8Array {
+    const a = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        a[y * width + x] = x < width / 2 ? 255 : 0;
+      }
+    }
+    return a;
+  }
+
+  it('radius 0 is the identity (value-equal, fresh copy)', () => {
+    const src = new Uint8Array([0, 64, 128, 255, 200, 5]);
+    const out = featherAlpha(src, 3, 2, 0);
+    expect([...out]).toEqual([...src]);
+    // It must be a copy, not the same reference (so callers can mutate safely).
+    expect(out).not.toBe(src as unknown);
+  });
+
+  it('preserves a fully-opaque interior and fully-transparent exterior', () => {
+    const w = 9;
+    const h = 9;
+    // 3x3 opaque block centered in a 9x9 transparent field.
+    const a = new Uint8Array(w * h);
+    for (let y = 3; y <= 5; y++) for (let x = 3; x <= 5; x++) a[y * w + x] = 255;
+    const out = featherAlpha(a, w, h, 1);
+    // Dead center stays fully opaque (its whole 3x3 neighborhood is 255).
+    expect(out[4 * w + 4]).toBe(255);
+    // A far corner stays fully transparent (its neighborhood is all 0).
+    expect(out[0]).toBe(0);
+    expect(out[w * h - 1]).toBe(0);
+  });
+
+  it('widens the soft transition band at the edge', () => {
+    const w = 8;
+    const h = 1;
+    const a = leftHalfMask(w, h); // [255,255,255,255,0,0,0,0]
+    const hard = featherAlpha(a, w, h, 0);
+    const soft = featherAlpha(a, w, h, 2);
+
+    // Count pixels that are strictly between 0 and 255 (the soft band).
+    const band = (arr: ArrayLike<number>) => {
+      let n = 0;
+      for (let i = 0; i < arr.length; i++) if (arr[i] > 0 && arr[i] < 255) n++;
+      return n;
+    };
+    expect(band(hard)).toBe(0); // hard edge: no intermediate values
+    expect(band(soft)).toBeGreaterThan(band(hard)); // blur creates a gradient
+  });
+
+  it('produces a monotonic ramp across a vertical edge', () => {
+    const w = 6;
+    const a = leftHalfMask(w, 1);
+    const out = featherAlpha(a, w, 1, 1);
+    // Non-increasing left-to-right (opaque -> transparent).
+    for (let x = 1; x < w; x++) expect(out[x]).toBeLessThanOrEqual(out[x - 1]);
+  });
+
+  it('throws on bad dimensions or mismatched length', () => {
+    expect(() => featherAlpha(new Uint8Array(4), 0, 1, 1)).toThrow();
+    expect(() => featherAlpha(new Uint8Array(5), 2, 2, 1)).toThrow(/does not match/);
+  });
+});
+
+describe('featherRgbaAlpha', () => {
+  it('radius 0 returns an exact copy and leaves the input untouched', () => {
+    const rgba = new Uint8ClampedArray([10, 20, 30, 255, 40, 50, 60, 0]);
+    const out = featherRgbaAlpha(rgba, 2, 1, 0);
+    expect([...out]).toEqual([...rgba]);
+    expect(out).not.toBe(rgba);
+  });
+
+  it('softens alpha while leaving RGB channels intact', () => {
+    const w = 4;
+    const h = 1;
+    // Two opaque colored pixels, then two transparent ones.
+    const rgba = new Uint8ClampedArray([
+      11, 22, 33, 255,
+      44, 55, 66, 255,
+      77, 88, 99, 0,
+      10, 20, 30, 0,
+    ]);
+    const out = featherRgbaAlpha(rgba, w, h, 1);
+    // RGB untouched everywhere.
+    for (let i = 0; i < w; i++) {
+      expect([out[i * 4], out[i * 4 + 1], out[i * 4 + 2]]).toEqual([
+        rgba[i * 4],
+        rgba[i * 4 + 1],
+        rgba[i * 4 + 2],
+      ]);
+    }
+    // The boundary pixels now carry an intermediate alpha.
+    expect(out[1 * 4 + 3]).toBeLessThan(255);
+    expect(out[2 * 4 + 3]).toBeGreaterThan(0);
+    // Original buffer not mutated.
+    expect(rgba[1 * 4 + 3]).toBe(255);
+  });
+
+  it('throws when rgba length does not match width*height*4', () => {
+    expect(() => featherRgbaAlpha(new Uint8ClampedArray(7), 2, 1, 1)).toThrow(
+      /does not match/,
+    );
   });
 });
 

@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   BG_COLOR_KEY,
+  FEATHER_KEY,
+  clampFeather,
   isHexColor,
   loadBgColor,
+  loadFeather,
   saveBgColor,
+  saveFeather,
   type StorageLike,
 } from '../src/lib/storage';
 
@@ -87,5 +91,57 @@ describe('saveBgColor', () => {
     const s = memStorage();
     saveBgColor(s, '#0a0b0c');
     expect(loadBgColor(s, '#ffffff')).toBe('#0a0b0c');
+  });
+});
+
+describe('clampFeather', () => {
+  it('clamps to [0, max] and rounds', () => {
+    expect(clampFeather(2.4, 5)).toBe(2);
+    expect(clampFeather(2.6, 5)).toBe(3);
+    expect(clampFeather(-3, 5)).toBe(0);
+    expect(clampFeather(99, 5)).toBe(5);
+  });
+  it('parses numeric strings and rejects garbage', () => {
+    expect(clampFeather('3', 5)).toBe(3);
+    expect(clampFeather('nope', 5)).toBe(0);
+    expect(clampFeather(NaN, 5)).toBe(0);
+    expect(clampFeather(Infinity, 5)).toBe(0);
+  });
+});
+
+describe('loadFeather', () => {
+  it('returns the stored value, clamped', () => {
+    expect(loadFeather(memStorage({ [FEATHER_KEY]: '3' }), 5)).toBe(3);
+    expect(loadFeather(memStorage({ [FEATHER_KEY]: '42' }), 5)).toBe(5);
+  });
+  it('returns the (clamped) fallback when nothing is stored', () => {
+    expect(loadFeather(memStorage(), 5, 2)).toBe(2);
+    expect(loadFeather(memStorage(), 5)).toBe(0);
+  });
+  it('returns the fallback when the stored value is non-numeric', () => {
+    expect(loadFeather(memStorage({ [FEATHER_KEY]: 'x' }), 5, 1)).toBe(1);
+  });
+  it('returns the fallback for null storage and on access errors', () => {
+    expect(loadFeather(null, 5, 4)).toBe(4);
+    expect(loadFeather(throwingStorage, 5, 4)).toBe(4);
+  });
+});
+
+describe('saveFeather', () => {
+  it('writes a clamped value and reports success', () => {
+    const s = memStorage();
+    expect(saveFeather(s, 3, 5)).toBe(true);
+    expect(s.store[FEATHER_KEY]).toBe('3');
+    saveFeather(s, 99, 5);
+    expect(s.store[FEATHER_KEY]).toBe('5');
+  });
+  it('returns false for null storage and on access errors', () => {
+    expect(saveFeather(null, 3, 5)).toBe(false);
+    expect(saveFeather(throwingStorage, 3, 5)).toBe(false);
+  });
+  it('round-trips through load', () => {
+    const s = memStorage();
+    saveFeather(s, 4, 5);
+    expect(loadFeather(s, 5, 0)).toBe(4);
   });
 });
